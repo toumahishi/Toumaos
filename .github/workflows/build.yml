@@ -55,30 +55,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Nos logueamos usando Podman para que tenga acceso al registro de GitHub
-      - name: Log in to registry using Podman
+      # Creamos las credenciales en una carpeta temporal para pasárselas al constructor
+      - name: Setup auth for registry
         run: |
-          podman login ${{ env.REGISTRY }} \
-            -u ${{ github.actor }} \
-            -p ${{ secrets.GITHUB_TOKEN }}
+          mkdir -p ~/.config/containers
+          echo '{"auths":{"${{ env.REGISTRY }}":{"auth":"$(echo -n "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" | base64)"}}}' > ~/.config/containers/auth.json
 
       - name: Create output directory
         run: mkdir -p ./output
 
-      # SOLUCIÓN REAL: Descargamos con podman para que comparta el almacenamiento correcto
-      - name: Pull ToumaOS image via Podman
-        run: podman pull ${{ needs.build-container.outputs.image_tag }}
-
-      # Ejecutamos el constructor compartiendo el almacenamiento local de podman
+      # Ejecutamos bootc-image-builder pasando tus credenciales para que él mismo descargue la imagen de internet sin problemas de usuarios locales
       - name: Build ISO using bootc-image-builder
         run: |
-          sudo podman run --rm --privileged \
+          sudo docker run --rm --privileged \
             -v "$(pwd)/output:/output" \
-            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            -v ~/.config/containers/auth.json:/config/auth.json \
             quay.io/centos-bootc/bootc-image-builder:latest \
             build \
             --type iso \
-            ${{ needs.build-container.outputs.image_tag }}
+            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Upload ISO Artifact
         uses: actions/upload-artifact@v4
