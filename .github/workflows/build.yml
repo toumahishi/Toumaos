@@ -55,25 +55,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Nos aseguramos de estar logueados también en este job para poder descargar tu imagen privada/pública
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      # Nos logueamos usando Podman para que tenga acceso al registro de GitHub
+      - name: Log in to registry using Podman
+        run: |
+          podman login ${{ env.REGISTRY }} \
+            -u ${{ github.actor }} \
+            -p ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create output directory
         run: mkdir -p ./output
 
-      # LECCIÓN APRENDIDA: Forzamos a la máquina a descargar tu imagen antes de correr el constructor de ISO
-      - name: Pull ToumaOS image locally
-        run: docker pull ${{ needs.build-container.outputs.image_tag }}
+      # SOLUCIÓN REAL: Descargamos con podman para que comparta el almacenamiento correcto
+      - name: Pull ToumaOS image via Podman
+        run: podman pull ${{ needs.build-container.outputs.image_tag }}
 
-      # Ejecutamos el builder apuntando a la imagen local y sin el parámetro obsoleto --local
+      # Ejecutamos el constructor compartiendo el almacenamiento local de podman
       - name: Build ISO using bootc-image-builder
         run: |
-          docker run --rm --privileged \
+          sudo podman run --rm --privileged \
             -v "$(pwd)/output:/output" \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             quay.io/centos-bootc/bootc-image-builder:latest \
