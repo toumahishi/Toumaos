@@ -1,5 +1,5 @@
 # Base oficial de Fedora Bootc Rawhide
-FROM quay.io/fedora/fedora-bootc:rawhide
+FROM quay.io/fedora/fedora-bootc:44
 
 # 1. Instalamos KDE mínimo y distrobox (sin sddm, que ya viene resuelto en el grupo)
 RUN dnf group install -y kde-desktop --setopt=install_weak_deps=False && \
