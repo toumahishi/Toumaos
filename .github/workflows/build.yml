@@ -55,9 +55,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Nos aseguramos de estar logueados también en este job para poder descargar tu imagen privada/pública
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create output directory
         run: mkdir -p ./output
 
+      # LECCIÓN APRENDIDA: Forzamos a la máquina a descargar tu imagen antes de correr el constructor de ISO
+      - name: Pull ToumaOS image locally
+        run: docker pull ${{ needs.build-container.outputs.image_tag }}
+
+      # Ejecutamos el builder apuntando a la imagen local y sin el parámetro obsoleto --local
       - name: Build ISO using bootc-image-builder
         run: |
           docker run --rm --privileged \
@@ -66,10 +79,8 @@ jobs:
             quay.io/centos-bootc/bootc-image-builder:latest \
             build \
             --type iso \
-            --local \
             ${{ needs.build-container.outputs.image_tag }}
 
-      # Aquí corregimos el nombre exacto de la acción oficial
       - name: Upload ISO Artifact
         uses: actions/upload-artifact@v4
         with:
