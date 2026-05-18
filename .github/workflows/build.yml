@@ -1,4 +1,4 @@
-name: Build ToumaOS
+name: Build ToumaOS ISO
 
 on:
   push:
@@ -8,14 +8,16 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: toumaos
 
 jobs:
-  build-and-push:
+  build-container:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,11 +29,49 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Containerfile
           push: true
-          # Forzamos que se convierta a minúsculas usando una función interna de GitHub
-          tags: ghcr.io/${{ github.repository_owner }}/toumaos:latest
+          tags: ${{ steps.meta.outputs.tags }}
+
+  build-iso:
+    needs: build-container
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create output directory
+        run: mkdir -p ./output
+
+      - name: Build ISO using bootc-image-builder
+        run: |
+          docker run --rm --privileged \
+            -v "$(pwd)/output:/output" \
+            -v /var/lib/containers/storage:/var/lib/containers/storage \
+            quay.io/centos-bootc/bootc-image-builder:latest \
+            build \
+            --type iso \
+            --local \
+            ${{ needs.build-container.outputs.image_tag }}
+
+      - name: Upload ISO Artifact
+        uses: actions/artifact-upload-action@v4
+        with:
+          name: ToumaOS-ISO
+          path: ./output/bootiso/install.iso
+          if-no-files-found: error
