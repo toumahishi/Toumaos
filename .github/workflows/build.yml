@@ -61,14 +61,18 @@ jobs:
           mkdir -p ~/.config/containers
           echo '{"auths":{"${{ env.REGISTRY }}":{"auth":"$(echo -n "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" | base64)"}}}' > ~/.config/containers/auth.json
 
-      - name: Create output directory
-        run: mkdir -p ./output
+      # Creamos la carpeta de almacenamiento local que nos exige el constructor
+      - name: Create local storage directories
+        run: |
+          mkdir -p ./output
+          mkdir -p ./local_storage
 
-      # Ejecutamos bootc-image-builder pasando tus credenciales para que él mismo descargue la imagen de internet sin problemas de usuarios locales
+      # Ejecutamos pasando las credenciales por red Y el almacenamiento que nos pidió a gritos
       - name: Build ISO using bootc-image-builder
         run: |
           sudo docker run --rm --privileged \
             -v "$(pwd)/output:/output" \
+            -v "$(pwd)/local_storage:/var/lib/containers/storage" \
             -v ~/.config/containers/auth.json:/config/auth.json \
             quay.io/centos-bootc/bootc-image-builder:latest \
             build \
