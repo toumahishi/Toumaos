@@ -55,28 +55,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Credenciales para que acceda al paquete ghcr.io
-      - name: Setup auth for registry
+      # Nos logueamos en Podman con el usuario normal de GitHub
+      - name: Log in to Registry via Podman
         run: |
-          mkdir -p ~/.config/containers
-          echo '{"auths":{"${{ env.REGISTRY }}":{"auth":"$(echo -n "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" | base64)"}}}' > ~/.config/containers/auth.json
+          podman login ${{ env.REGISTRY }} \
+            -u ${{ github.actor }} \
+            -p ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create output directory
         run: mkdir -p ./output
 
-      # SOLUCIÓN DE RAÍZ: Compartimos la carpeta de storage real de la máquina virtual de GitHub
-      # Esto evita el conflicto de "overlay sobre overlay"
+      # SOLUCIÓN FINAL: Corremos podman SIN sudo, usando el driver vfs mapeado a su espacio seguro de usuario
       - name: Build ISO using bootc-image-builder
         run: |
-          sudo docker run --rm --privileged \
+          podman run --rm \
+            --security-opt label=disable \
             -v "$(pwd)/output:/output" \
-            -v /var/lib/docker/containers:/var/lib/containers/storage \
-            -v ~/.config/containers/auth.json:/config/auth.json \
+            -v "$HOME/.local/share/containers/storage:/var/lib/containers/storage" \
             quay.io/centos-bootc/bootc-image-builder:latest \
+            --storage-driver=vfs \
             build \
             --type iso \
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
-
+            
       - name: Upload ISO Artifact
         uses: actions/upload-artifact@v4
         with:
