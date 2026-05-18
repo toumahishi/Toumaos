@@ -55,7 +55,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Creamos las credenciales en una carpeta temporal para pasárselas al constructor
+      # Creamos las credenciales para que el constructor acceda a tu paquete
       - name: Setup auth for registry
         run: |
           mkdir -p ~/.config/containers
@@ -64,14 +64,14 @@ jobs:
       - name: Create output directory
         run: mkdir -p ./output
 
-      # Ejecutamos el builder forzando el driver de almacenamiento compatible con la máquina virtual de GitHub
+      # Ejecutamos el builder asignándole su propia partición aislada para el almacenamiento interno
       - name: Build ISO using bootc-image-builder
         run: |
           sudo docker run --rm --privileged \
             -v "$(pwd)/output:/output" \
+            -v /var/lib/containers/storage \
             -v ~/.config/containers/auth.json:/config/auth.json \
             quay.io/centos-bootc/bootc-image-builder:latest \
-            --storage-driver=vfs \
             build \
             --type iso \
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
