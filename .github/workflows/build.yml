@@ -55,7 +55,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Creamos las credenciales para que el constructor acceda a tu paquete
+      # Credenciales para que acceda al paquete ghcr.io
       - name: Setup auth for registry
         run: |
           mkdir -p ~/.config/containers
@@ -64,12 +64,13 @@ jobs:
       - name: Create output directory
         run: mkdir -p ./output
 
-      # Ejecutamos el builder asignándole su propia partición aislada para el almacenamiento interno
+      # SOLUCIÓN DE RAÍZ: Compartimos la carpeta de storage real de la máquina virtual de GitHub
+      # Esto evita el conflicto de "overlay sobre overlay"
       - name: Build ISO using bootc-image-builder
         run: |
           sudo docker run --rm --privileged \
             -v "$(pwd)/output:/output" \
-            -v /var/lib/containers/storage \
+            -v /var/lib/docker/containers:/var/lib/containers/storage \
             -v ~/.config/containers/auth.json:/config/auth.json \
             quay.io/centos-bootc/bootc-image-builder:latest \
             build \
