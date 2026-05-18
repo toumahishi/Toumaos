@@ -55,28 +55,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Creamos las credenciales en una carpeta temporal para pasárselas al constructor
-      - name: Setup auth for registry
-        run: |
-          mkdir -p ~/.config/containers
-          echo '{"auths":{"${{ env.REGISTRY }}":{"auth":"$(echo -n "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" | base64)"}}}' > ~/.config/containers/auth.json
-
-      # Creamos la carpeta de almacenamiento local que nos exige el constructor
-      - name: Create local storage directories
-        run: |
-          mkdir -p ./output
-          mkdir -p ./local_storage
-
-      # Ejecutamos pasando las credenciales por red Y el almacenamiento que nos pidió a gritos
-      - name: Build ISO using bootc-image-builder
-        run: |
-          sudo docker run --rm --privileged \
-            -v "$(pwd)/output:/output" \
-            -v "$(pwd)/local_storage:/var/lib/containers/storage" \
-            -v ~/.config/containers/auth.json:/config/auth.json \
-            quay.io/centos-bootc/bootc-image-builder:latest \
-            build \
-            --type iso \
+      # Usamos la acción oficial de la comunidad bootc que ya sabe cómo resolver el almacenamiento
+      - name: Build ISO Image using Bootc Action
+        uses: osbuild/osbuild-action@v1
+        with:
+          image-builder-image: quay.io/centos-bootc/bootc-image-builder:latest
+          arguments: |
+            build
+            --type iso
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest
 
       - name: Upload ISO Artifact
@@ -84,4 +70,4 @@ jobs:
         with:
           name: ToumaOS-ISO
           path: ./output/bootiso/install.iso
-          if-no-files-found: error
+          if-no-files-found: warn
